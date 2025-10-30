@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>💬 ChatMasala v2</title>
+<title>💬 ChatMasala v7</title>
 <style>
   :root {
     --bg: #f9fafb;
@@ -53,6 +53,41 @@
     font-size: 16px;
     cursor: pointer;
     padding: 4px 8px;
+  }
+
+  .room-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    background: var(--panel);
+  }
+
+  #roomSelect {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background: var(--panel);
+    color: var(--muted);
+  }
+
+  #newRoomBtn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  #deleteRoomBtn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
   }
 
   .messages {
@@ -154,7 +189,20 @@
     cursor: pointer;
   }
 
-  /* Mobile */
+  .typing {
+    font-style: italic;
+    color: var(--muted);
+    font-size: 13px;
+    margin: 4px 12px;
+  }
+
+  .room-meta {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
   @media (max-width: 700px) {
     .msg {
       max-width: 90%;
@@ -164,10 +212,18 @@
 </head>
 <body>
   <header>
-    💬 ChatMasala v2
+    💬 ChatMasala v7
     <button id="themeToggle">🌙</button>
   </header>
 
+  <div class="room-bar">
+    <select id="roomSelect"></select>
+    <button id="newRoomBtn">＋</button>
+    <button id="deleteRoomBtn">🗑️</button>
+  </div>
+
+  <div id="roomMeta" class="room-meta"></div>
+  <div id="typingIndicator" class="typing" style="display:none;"></div>
   <div class="messages" id="messages"></div>
 
   <div class="composer">
@@ -196,21 +252,30 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Ask for username once
+    const MAX_FILE_BYTES = 2000 * 1024; // 2 MB
+    const roomsRef = db.ref("rooms");
+
     let user = localStorage.getItem("chatUser");
     if (!user) {
-      user = prompt("Enter your ChatMasala name:");
+      user = prompt("Enter your ChatMasala name:") || "Guest";
       localStorage.setItem("chatUser", user);
     }
 
+    const roomSelect = document.getElementById("roomSelect");
+    const newRoomBtn = document.getElementById("newRoomBtn");
+    const deleteRoomBtn = document.getElementById("deleteRoomBtn");
+    const roomMeta = document.getElementById("roomMeta");
     const messagesEl = document.getElementById("messages");
+    const typingIndicator = document.getElementById("typingIndicator");
     const messageInput = document.getElementById("messageInput");
     const sendBtn = document.getElementById("sendBtn");
     const attachBtn = document.getElementById("attachBtn");
     const fileInput = document.getElementById("fileInput");
     const themeToggle = document.getElementById("themeToggle");
 
+    let currentRoom = null;
     let pendingFile = null;
+    let typingTimeout = null;
 
     // 🌙 Theme toggle
     themeToggle.addEventListener("click", () => {
@@ -219,49 +284,143 @@
       themeToggle.textContent = dark ? "🌙" : "☀️";
     });
 
-    // 📎 File upload
+    // Load rooms
+    roomsRef.on("value", (snap) => {
+      roomSelect.innerHTML = "";
+      const rooms = snap.val() || {};
+      Object.entries(rooms).forEach(([id, room]) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = `${room.name}`;
+        roomSelect.appendChild(opt);
+      });
+      if (!currentRoom && roomSelect.options.length > 0) {
+        currentRoom = roomSelect.value;
+        loadMessages(currentRoom);
+      }
+      updateRoomMeta();
+    });
+
+    // Create room
+    newRoomBtn.addEventListener("click", () => {
+      const roomName = prompt("Enter new room name:");
+      if (roomName) {
+        const ref = roomsRef.push({
+          name: roomName,
+          creator: user,
+          createdAt: Date.now()
+        });
+        roomSelect.value = ref.key;
+        currentRoom = ref.key;
+        loadMessages(currentRoom);
+      }
+    });
+
+    // Delete room (any user can delete)
+    deleteRoomBtn.addEventListener("click", () => {
+      if (!currentRoom) return alert("No room selected.");
+      if (confirm("Are you sure you want to delete this room for everyone?")) {
+        db.ref("messages/" + currentRoom).remove();
+        db.ref("typing/" + currentRoom).remove();
+        roomsRef.child(currentRoom).remove();
+        currentRoom = null;
+        messagesEl.innerHTML = "";
+        roomSelect.innerHTML = "";
+        roomMeta.textContent = "";
+      }
+    });
+
+    // Select room
+    roomSelect.addEventListener("change", () => {
+      currentRoom = roomSelect.value;
+      loadMessages(currentRoom);
+    });
+
+    function updateRoomMeta() {
+      if (!currentRoom) return;
+      roomsRef.child(currentRoom).once("value", (snap) => {
+        const room = snap.val();
+        if (room)
+          roomMeta.textContent = `Created by ${room.creator} • ${new Date(room.createdAt).toLocaleString()}`;
+        else roomMeta.textContent = "";
+      });
+    }
+
+    function loadMessages(room) {
+      messagesEl.innerHTML = "";
+      db.ref("messages/" + room).off();
+      db.ref("messages/" + room).on("child_added", (snap) => appendMessage(snap.val()));
+      db.ref("messages/" + room).on("child_removed", (snap) => {
+        const msgEl = document.getElementById("msg-" + snap.key);
+        if (msgEl) msgEl.remove();
+      });
+      attachTypingListener(room);
+      updateRoomMeta();
+    }
+
+    // Typing
+    messageInput.addEventListener("input", () => sendTyping());
+    function sendTyping() {
+      if (!currentRoom) return;
+      const ref = db.ref("typing/" + currentRoom + "/" + user);
+      ref.set(Date.now());
+      if (typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => ref.remove(), 2000);
+    }
+
+    function attachTypingListener(room) {
+      db.ref("typing/" + room).on("value", (snap) => {
+        const val = snap.val();
+        if (!val) {
+          typingIndicator.style.display = "none";
+          return;
+        }
+        const names = Object.keys(val).filter((n) => n !== user);
+        if (names.length) {
+          typingIndicator.textContent = `${names.join(", ")} ${
+            names.length > 1 ? "are typing..." : "is typing..."
+          }`;
+          typingIndicator.style.display = "block";
+        } else typingIndicator.style.display = "none";
+      });
+    }
+
+    // File Upload
     attachBtn.onclick = () => fileInput.click();
     fileInput.onchange = (e) => {
       const file = e.target.files[0];
-      if (file) {
-        pendingFile = file;
-        alert("Attached: " + file.name);
-      }
+      if (file && file.size <= MAX_FILE_BYTES) {
+        const reader = new FileReader();
+        reader.onload = () => (pendingFile = { name: file.name, data: reader.result });
+        reader.readAsDataURL(file);
+        alert("File attached: " + file.name);
+      } else alert("File too large (max 2 MB).");
     };
 
-    // 📨 Send message
+    // Send message
     sendBtn.onclick = sendMessage;
     messageInput.addEventListener("keypress", (e) => {
       if (e.key === "Enter") sendMessage();
     });
 
     function sendMessage() {
+      if (!currentRoom) return alert("Select a room first!");
       const text = messageInput.value.trim();
       if (!text && !pendingFile) return;
-      const id = db.ref("messages").push().key;
+      const id = db.ref("messages/" + currentRoom).push().key;
       const msg = {
         id,
         user,
         text: text || null,
         time: Date.now(),
-        fileUrl: pendingFile ? URL.createObjectURL(pendingFile) : null,
-        fileName: pendingFile ? pendingFile.name : null,
+        file: pendingFile,
       };
-      db.ref("messages/" + id).set(msg);
+      db.ref("messages/" + currentRoom + "/" + id).set(msg);
       messageInput.value = "";
       pendingFile = null;
     }
 
-    // 🔁 Load messages realtime
-    db.ref("messages").on("child_added", (snap) => {
-      appendMessage(snap.val());
-    });
-    db.ref("messages").on("child_removed", (snap) => {
-      const msgEl = document.getElementById("msg-" + snap.key);
-      if (msgEl) msgEl.remove();
-    });
-
-    // 🧾 Append messages
+    // Append messages
     function appendMessage(data) {
       const div = document.createElement("div");
       div.className = "msg " + (data.user === user ? "out" : "in");
@@ -269,15 +428,13 @@
 
       let html = `<strong>${data.user}</strong>`;
       if (data.text) html += `<p>${data.text}</p>`;
-      if (data.fileUrl) {
-        const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(data.fileName || "");
+      if (data.file) {
+        const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(data.file.name);
         html += isImg
-          ? `<a href="${data.fileUrl}" target="_blank"><img src="${data.fileUrl}" class="preview"></a>`
-          : `<a href="${data.fileUrl}" target="_blank">📎 ${data.fileName}</a>`;
+          ? `<a href="${data.file.data}" target="_blank"><img src="${data.file.data}" class="preview"></a>`
+          : `<a href="${data.file.data}" target="_blank">📎 ${data.file.name}</a>`;
       }
       html += `<div class="meta">${new Date(data.time).toLocaleTimeString()}</div>`;
-
-      // show delete for own messages
       if (data.user === user)
         html += `<button class="deleteBtn" onclick="deleteMessage('${data.id}')">🗑 Delete</button>`;
 
@@ -286,10 +443,9 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    // 🗑 Delete function
     function deleteMessage(id) {
       if (confirm("Delete this message?")) {
-        db.ref("messages/" + id).remove();
+        db.ref("messages/" + currentRoom + "/" + id).remove();
       }
     }
 
