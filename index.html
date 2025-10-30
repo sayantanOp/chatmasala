@@ -1,253 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>💬 ChatMasala</title>
-  <style>
-    :root {
-      --bg: #f3f6f8;
-      --panel: #ffffff;
-      --accent: #ff7043;
-      --accent2: #ff8a65;
-      --muted: #64748b;
-      --incoming: #fffaf0;
-      --outgoing: #e0f7fa;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>💬 ChatMasala v2</title>
+<style>
+  :root {
+    --bg: #f9fafb;
+    --panel: #ffffff;
+    --accent: #ff7043;
+    --muted: #64748b;
+    --incoming: #fff7ed;
+    --outgoing: #e0f7fa;
+  }
 
-    [data-theme="dark"] {
-      --bg: #0f172a;
-      --panel: #1e293b;
-      --accent: #ff8a65;
-      --accent2: #ff7043;
-      --muted: #94a3b8;
-      --incoming: #2d3748;
-      --outgoing: #334155;
-    }
+  [data-theme="dark"] {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --accent: #ff8a65;
+    --muted: #94a3b8;
+    --incoming: #2d3748;
+    --outgoing: #334155;
+  }
 
-    body {
-      margin: 0;
-      font-family: "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--muted);
-      height: 100vh;
-      display: flex;
-      align-items: stretch;
-    }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--muted);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 
-    .app {
-      margin: auto;
-      width: 95%;
-      height: 92vh;
-      max-width: 1200px;
-      display: grid;
-      grid-template-columns: 300px 1fr;
-      gap: 18px;
-    }
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    position: relative;
+  }
 
-    .sidebar {
-      background: var(--panel);
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: 0 6px 20px rgba(8,32,50,0.06);
-      display: flex;
-      flex-direction: column;
-    }
+  #themeToggle {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+  }
 
-    .profile {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 15px;
-    }
+  .messages {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--panel);
+  }
 
-    .profile img {
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      border: 2px solid var(--accent);
-    }
+  .msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 80%;
+  }
 
-    .profile .name {
-      font-weight: 700;
-      color: var(--accent);
-    }
+  .msg.out {
+    align-self: flex-end;
+    background: var(--outgoing);
+    border-radius: 12px;
+    padding: 8px 10px;
+  }
 
-    .rooms {
-      flex: 1;
-      overflow-y: auto;
-    }
+  .msg.in {
+    align-self: flex-start;
+    background: var(--incoming);
+    border-radius: 12px;
+    padding: 8px 10px;
+  }
 
-    .room {
-      padding: 10px;
-      border-radius: 10px;
-      cursor: pointer;
-    }
+  .msg strong {
+    color: var(--accent);
+    font-size: 13px;
+  }
 
-    .room:hover {
-      background: #ffe0b2;
-    }
+  .msg p {
+    margin: 4px 0 0;
+    word-wrap: break-word;
+  }
 
-    .room.active {
-      background: linear-gradient(90deg, var(--accent2), var(--accent));
-      color: white;
-    }
+  .msg img.preview {
+    max-width: 200px;
+    border-radius: 8px;
+    margin-top: 6px;
+  }
 
-    .panel {
-      background: var(--panel);
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-    }
+  .meta {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-align: right;
+  }
 
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 15px;
-      border-bottom: 1px solid #ddd;
-    }
+  .deleteBtn {
+    background: none;
+    border: none;
+    color: #e11d48;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 4px;
+    align-self: flex-end;
+  }
 
-    .header img {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-    }
+  .composer {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    gap: 6px;
+    border-top: 1px solid #ddd;
+    background: var(--panel);
+  }
 
-    .messages {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px;
+    border-radius: 18px;
+    border: 1px solid #ccc;
+    background: var(--bg);
+  }
 
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
+  .attach {
+    background: transparent;
+    border: 1px dashed #ccc;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  /* Mobile */
+  @media (max-width: 700px) {
     .msg {
-      display: flex;
-      gap: 8px;
-      max-width: 75%;
+      max-width: 90%;
     }
-
-    .msg.out {
-      margin-left: auto;
-      flex-direction: row-reverse;
-    }
-
-    .bubble {
-      background: var(--incoming);
-      padding: 10px 12px;
-      border-radius: 12px;
-    }
-
-    .bubble.out {
-      background: var(--outgoing);
-    }
-
-    .metaSmall {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-
-    .composer {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px;
-      border-top: 1px solid #ddd;
-    }
-
-    .composer input[type="text"] {
-      flex: 1;
-      padding: 10px;
-      border-radius: 20px;
-      border: 1px solid #ccc;
-      background: var(--bg);
-      color: black;
-    }
-
-    .btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 42px;
-      height: 42px;
-      cursor: pointer;
-    }
-
-    .attach {
-      background: transparent;
-      border: 1px dashed #ccc;
-      padding: 8px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    .toggle {
-      background: var(--accent2);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 5px 8px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-
-    @media (max-width: 850px) {
-      .app {
-        grid-template-columns: 1fr;
-      }
-      .sidebar {
-        display: none;
-      }
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
-  <div class="app">
-    <div class="sidebar">
-      <div class="profile">
-        <img id="profileImg" src="https://api.dicebear.com/7.x/fun-emoji/svg?seed=panda" alt="avatar" />
-        <div>
-          <div class="name" id="userNameLabel">Guest</div>
-          <button id="themeToggle" class="toggle">🌙</button>
-        </div>
-      </div>
+  <header>
+    💬 ChatMasala v2
+    <button id="themeToggle">🌙</button>
+  </header>
 
-      <input id="newRoomInput" placeholder="New room name" />
-      <button id="createRoomBtn" class="btn">+</button>
+  <div class="messages" id="messages"></div>
 
-      <div class="rooms" id="roomsList"></div>
-    </div>
-
-    <div class="panel">
-      <div class="header">
-        <img id="roomAvatar" src="https://api.dicebear.com/7.x/fun-emoji/svg?seed=cat" />
-        <div>
-          <div class="room-title" id="roomTitle">Select / Create Room</div>
-          <div class="metaSmall" id="roomMeta">Realtime ChatMasala 💬</div>
-        </div>
-      </div>
-
-      <div class="messages" id="messages"></div>
-
-      <div class="composer">
-        <button id="attachBtn" class="attach">📎</button>
-        <input type="file" id="fileInput" style="display:none" />
-        <input type="text" id="messageInput" placeholder="Type your masala..." />
-        <button id="sendBtn" class="btn">➡️</button>
-      </div>
-    </div>
+  <div class="composer">
+    <button id="attachBtn" class="attach">📎</button>
+    <input type="file" id="fileInput" style="display:none" />
+    <input type="text" id="messageInput" placeholder="Type your message..." />
+    <button id="sendBtn" class="btn">➡️</button>
   </div>
 
-  <!-- Firebase compat SDK -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
   <script>
-    // ✅ Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBg_DmvYAdZe5CmyonHuOn-p12yKrwDN_E",
       authDomain: "chatmasala-e8c77.firebaseapp.com",
@@ -262,63 +196,41 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Elements
-    const userNameLabel = document.getElementById("userNameLabel");
-    const roomsList = document.getElementById("roomsList");
-    const roomTitle = document.getElementById("roomTitle");
+    // Ask for username once
+    let user = localStorage.getItem("chatUser");
+    if (!user) {
+      user = prompt("Enter your ChatMasala name:");
+      localStorage.setItem("chatUser", user);
+    }
+
     const messagesEl = document.getElementById("messages");
     const messageInput = document.getElementById("messageInput");
     const sendBtn = document.getElementById("sendBtn");
-    const fileInput = document.getElementById("fileInput");
     const attachBtn = document.getElementById("attachBtn");
-    const createRoomBtn = document.getElementById("createRoomBtn");
-    const newRoomInput = document.getElementById("newRoomInput");
+    const fileInput = document.getElementById("fileInput");
     const themeToggle = document.getElementById("themeToggle");
 
-    let currentUser = localStorage.getItem("chatUser") || prompt("Enter your name:");
-    localStorage.setItem("chatUser", currentUser);
-    userNameLabel.textContent = currentUser;
-
-    let currentRoomId = null;
     let pendingFile = null;
 
-    // Toggle theme
+    // 🌙 Theme toggle
     themeToggle.addEventListener("click", () => {
-      const theme = document.body.dataset.theme === "dark" ? "" : "dark";
-      document.body.dataset.theme = theme;
-      themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+      const dark = document.body.dataset.theme === "dark";
+      document.body.dataset.theme = dark ? "" : "dark";
+      themeToggle.textContent = dark ? "🌙" : "☀️";
     });
 
-    // Create Room
-    createRoomBtn.addEventListener("click", () => {
-      const name = newRoomInput.value.trim();
-      if (!name) return alert("Enter room name");
-      firebase.database().ref("rooms").push({ name, createdAt: Date.now() });
-      newRoomInput.value = "";
-    });
+    // 📎 File upload
+    attachBtn.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        pendingFile = file;
+        alert("Attached: " + file.name);
+      }
+    };
 
-    // Show rooms
-    firebase.database().ref("rooms").on("child_added", (snap) => {
-      const room = snap.val();
-      const div = document.createElement("div");
-      div.className = "room";
-      div.textContent = room.name;
-      div.onclick = () => selectRoom(snap.key, room.name);
-      roomsList.appendChild(div);
-    });
-
-    function selectRoom(id, name) {
-      currentRoomId = id;
-      roomTitle.textContent = name;
-      messagesEl.innerHTML = "";
-      firebase.database().ref("messages/" + id).off();
-      firebase.database().ref("messages/" + id).on("child_added", (snap) => {
-        appendMessage(snap.key, snap.val());
-      });
-    }
-
-    // Send message
-    sendBtn.addEventListener("click", sendMessage);
+    // 📨 Send message
+    sendBtn.onclick = sendMessage;
     messageInput.addEventListener("keypress", (e) => {
       if (e.key === "Enter") sendMessage();
     });
@@ -326,40 +238,62 @@
     function sendMessage() {
       const text = messageInput.value.trim();
       if (!text && !pendingFile) return;
-      const ref = firebase.database().ref("messages/" + currentRoomId);
+      const id = db.ref("messages").push().key;
       const msg = {
-        user: currentUser,
+        id,
+        user,
         text: text || null,
         time: Date.now(),
-        file: pendingFile ? pendingFile.name : null,
+        fileUrl: pendingFile ? URL.createObjectURL(pendingFile) : null,
+        fileName: pendingFile ? pendingFile.name : null,
       };
-      ref.push(msg);
+      db.ref("messages/" + id).set(msg);
       messageInput.value = "";
       pendingFile = null;
     }
 
-    // Attach file
-    attachBtn.onclick = () => fileInput.click();
-    fileInput.onchange = (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      pendingFile = f;
-      alert("File ready: " + f.name);
-    };
+    // 🔁 Load messages realtime
+    db.ref("messages").on("child_added", (snap) => {
+      appendMessage(snap.val());
+    });
+    db.ref("messages").on("child_removed", (snap) => {
+      const msgEl = document.getElementById("msg-" + snap.key);
+      if (msgEl) msgEl.remove();
+    });
 
-    function appendMessage(id, data) {
+    // 🧾 Append messages
+    function appendMessage(data) {
       const div = document.createElement("div");
-      div.className = "msg" + (data.user === currentUser ? " out" : "");
-      div.innerHTML = `
-        <div class="bubble ${data.user === currentUser ? "out" : ""}">
-          <strong>${data.user}</strong><br>
-          ${data.text ? data.text : ""}
-          ${data.file ? `<div class='metaSmall'>📎 ${data.file}</div>` : ""}
-          <div class="metaSmall">${new Date(data.time).toLocaleTimeString()}</div>
-        </div>`;
+      div.className = "msg " + (data.user === user ? "out" : "in");
+      div.id = "msg-" + data.id;
+
+      let html = `<strong>${data.user}</strong>`;
+      if (data.text) html += `<p>${data.text}</p>`;
+      if (data.fileUrl) {
+        const isImg = /\.(png|jpg|jpeg|gif|webp)$/i.test(data.fileName || "");
+        html += isImg
+          ? `<a href="${data.fileUrl}" target="_blank"><img src="${data.fileUrl}" class="preview"></a>`
+          : `<a href="${data.fileUrl}" target="_blank">📎 ${data.fileName}</a>`;
+      }
+      html += `<div class="meta">${new Date(data.time).toLocaleTimeString()}</div>`;
+
+      // show delete for own messages
+      if (data.user === user)
+        html += `<button class="deleteBtn" onclick="deleteMessage('${data.id}')">🗑 Delete</button>`;
+
+      div.innerHTML = html;
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
+
+    // 🗑 Delete function
+    function deleteMessage(id) {
+      if (confirm("Delete this message?")) {
+        db.ref("messages/" + id).remove();
+      }
+    }
+
+    window.deleteMessage = deleteMessage;
   </script>
 </body>
 </html>
