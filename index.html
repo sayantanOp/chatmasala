@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ChatMasala 💬</title>
+  <style>
+    :root {
+      --bg:#f3f6f8; --panel:#ffffff; --accent:#00695c; --accent-2:#00897b;
+      --muted:#64748b; --incoming:#e6ffed; --outgoing:#cfeefd;
+    }
+    [data-theme="dark"] {
+      --bg:#0f172a; --panel:#1e293b; --accent:#38bdf8; --accent-2:#0ea5e9;
+      --muted:#94a3b8; --incoming:#1e293b; --outgoing:#334155;
+    }
+
+    *{box-sizing:border-box;}
+    body {
+      margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      background:var(--bg); color:#082032; height:100vh; display:flex; align-items:stretch;
+      transition: background 0.4s, color 0.4s;
+    }
+    .app {
+      margin:auto; width:95%; height:92vh; max-width:1200px;
+      display:grid; grid-template-columns:300px 1fr; gap:18px; align-items:stretch;
+    }
+
+    .sidebar {
+      background:var(--panel); border-radius:14px; padding:18px;
+      box-shadow:0 6px 20px rgba(8,32,50,0.06); display:flex; flex-direction:column;
+      transition: background 0.4s;
+    }
+    .profile { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+    .profile img {
+      width:56px;height:56px;border-radius:50%;object-fit:cover;
+      border:2px solid var(--accent);
+    }
+    .profile .name { font-weight:700; color:var(--accent); }
+    .rooms { flex:1; overflow:auto; margin-top:8px; }
+    .rooms .room {
+      padding:12px;border-radius:9px;display:flex;justify-content:space-between;align-items:center;
+      cursor:pointer;
+    }
+    .rooms .room:hover { background:rgba(0,0,0,0.05); }
+    .rooms .room.active {
+      background:linear-gradient(90deg,var(--accent-2),var(--accent));color:white;
+      box-shadow:0 6px 16px rgba(0,137,123,0.12);
+    }
+
+    .panel {
+      background:var(--panel); border-radius:14px; padding:14px;
+      display:flex; flex-direction:column; box-shadow:0 6px 20px rgba(8,32,50,0.06);
+      transition: background 0.4s;
+    }
+    .header { display:flex; align-items:center; gap:12px; padding:8px 6px; border-bottom:1px solid #edf2f4; }
+    .header .room-title { font-weight:700; font-size:18px; color:var(--accent); }
+    .messages {
+      flex:1; overflow:auto; padding:18px; display:flex; flex-direction:column; gap:12px;
+      background: linear-gradient(180deg,#fbfdfc,transparent);
+    }
+    [data-theme="dark"] .messages {
+      background: linear-gradient(180deg,#0f172a,transparent);
+    }
+
+    .msg { display:flex; gap:10px; align-items:flex-end; max-width:75%; }
+    .msg.out { margin-left:auto; flex-direction:row-reverse; text-align:right; }
+    .bubble { padding:10px 12px; border-radius:14px; background:var(--incoming);
+      display:inline-block; position:relative; box-shadow:0 4px 8px rgba(4,20,30,0.03);
+    }
+    .bubble.out { background:var(--outgoing); }
+    .metaSmall { font-size:11px; color:var(--muted); margin-top:6px; }
+    .avatar { width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #fff; }
+
+    .composer { display:flex; gap:8px; padding:12px; border-top:1px solid #eef2f4; align-items:center; }
+    .composer input[type="text"] { flex:1; padding:12px; border-radius:24px; border:1px solid #e6eef0; }
+    .btn { background:var(--accent); color:white; padding:10px 12px; border-radius:50%; border:none; cursor:pointer; }
+    .attach { background:transparent; border:1px dashed #dfeff0; padding:8px; border-radius:10px; cursor:pointer; }
+    .file-preview img { max-width:100px; border-radius:8px; margin-right:6px; }
+    .typing { color:var(--muted); font-style:italic; font-size:13px; margin-left:8px; }
+
+    .toggle-btn {
+      background:transparent;border:none;cursor:pointer;color:var(--accent);
+      font-size:18px; margin-left:auto;
+    }
+
+    @media (max-width:880px){ .app{grid-template-columns:1fr;} .sidebar{display:none;} }
+  </style>
+</head>
+<body data-theme="light">
+  <div class="app" id="app">
+    <div class="sidebar">
+      <div class="profile">
+        <img id="profileImg" src="https://api.dicebear.com/7.x/adventurer/svg?seed=Ada" alt="profile"/>
+        <div>
+          <div class="name" id="userNameLabel">Guest</div>
+          <div class="small" id="userIdLabel">Not logged</div>
+        </div>
+        <button id="themeToggle" class="toggle-btn" title="Toggle theme">🌙</button>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="newRoomInput" placeholder="New room name" />
+        <button id="createRoomBtn" class="btn" title="Create room">+</button>
+      </div>
+
+      <div class="rooms" id="roomsList"></div>
+      <div style="display:flex; gap:8px; align-items:center; margin-top:8px">
+        <button id="signOutBtn" class="attach">Sign out</button>
+        <div class="small" style="margin-left:auto">v2.0</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <img id="roomAvatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=ChatMasala" style="width:48px;height:48px;border-radius:8px">
+          <div>
+            <div class="room-title" id="roomTitle">Select / Create Room</div>
+            <div class="small" id="roomMeta">Public room • realtime</div>
+          </div>
+        </div>
+        <div id="typingIndicator" class="typing" style="display:none;margin-left:auto"></div>
+      </div>
+
+      <div class="messages" id="messages"></div>
+
+      <div class="composer">
+        <input type="file" id="fileInput" style="display:none" />
+        <button id="attachBtn" class="attach" title="Attach file">📎</button>
+        <div id="filePreview" class="file-preview"></div>
+        <input id="messageInput" type="text" placeholder="Type a message..." />
+        <button id="sendBtn" class="btn" title="Send">→</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    // 🔥 Your Firebase config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const userNameLabel=document.getElementById('userNameLabel'),
+          userIdLabel=document.getElementById('userIdLabel'),
+          profileImg=document.getElementById('profileImg'),
+          newRoomInput=document.getElementById('newRoomInput'),
+          createRoomBtn=document.getElementById('createRoomBtn'),
+          roomsList=document.getElementById('roomsList'),
+          roomTitle=document.getElementById('roomTitle'),
+          roomAvatar=document.getElementById('roomAvatar'),
+          messagesEl=document.getElementById('messages'),
+          messageInput=document.getElementById('messageInput'),
+          sendBtn=document.getElementById('sendBtn'),
+          attachBtn=document.getElementById('attachBtn'),
+          fileInput=document.getElementById('fileInput'),
+          filePreview=document.getElementById('filePreview'),
+          typingIndicator=document.getElementById('typingIndicator'),
+          signOutBtn=document.getElementById('signOutBtn'),
+          themeToggle=document.getElementById('themeToggle');
+
+    let currentUser=null,currentRoomId=null,pendingFile=null,typingTimeout=null;
+
+    function uid(){return 'u_'+Math.random().toString(36).slice(2,9);}
+
+    function initUser(){
+      const data=JSON.parse(localStorage.getItem('chatUser_v4')||"null");
+      if(data&&data.name) currentUser=data;
+      else{
+        const name=prompt("Enter your name for ChatMasala:")||"Guest";
+        currentUser={uid:uid(),name};
+        localStorage.setItem('chatUser_v4',JSON.stringify(currentUser));
+      }
+      userNameLabel.textContent=currentUser.name;
+      userIdLabel.textContent=currentUser.uid;
+      profileImg.src=`https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(currentUser.name)}`;
+    }
+    initUser();
+
+    signOutBtn.onclick=()=>{localStorage.removeItem('chatUser_v4');location.reload();};
+
+    const roomsRef=db.ref('rooms');
+    createRoomBtn.onclick=async()=>{
+      const name=newRoomInput.value.trim();
+      if(!name)return alert("Enter room name");
+      const newRoom={name,createdAt:Date.now(),createdBy:currentUser.uid};
+      await roomsRef.push(newRoom);
+      newRoomInput.value='';
+    };
+
+    roomsRef.on('child_added',snap=>renderRoom(snap.key,snap.val()));
+
+    function renderRoom(id,data){
+      let el=document.getElementById('room_'+id);
+      if(!el){
+        el=document.createElement('div');
+        el.className='room';
+        el.id='room_'+id;
+        el.innerHTML=`<div><strong>${data.name}</strong></div>`;
+        el.onclick=()=>selectRoom(id,data);
+        roomsList.appendChild(el);
+      }
+    }
+
+    async function selectRoom(id,data){
+      currentRoomId=id;
+      roomTitle.textContent=data.name;
+      roomAvatar.src=`https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(data.name)}`;
+      messagesEl.innerHTML='';
+      listenMessages();
+    }
+
+    function listenMessages(){
+      db.ref('messages/'+currentRoomId).off();
+      db.ref('messages/'+currentRoomId).on('child_added',snap=>{
+        const msg=snap.val();
+        appendMessage(snap.key,msg);
+      });
+    }
+
+    function appendMessage(key,msg){
+      const isMine=msg.uid===currentUser.uid;
+      const div=document.createElement('div');
+      div.className='msg '+(isMine?'out':'in');
+      let html=`
+        <img class="avatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(msg.user)}">
+        <div class="bubble${isMine?' out':''}">
+          <div style="font-weight:700;font-size:13px">${msg.user}</div>
+          <div style="margin-top:6px">${msg.text||''}</div>`;
+      if(msg.fileName&&msg.fileData){
+        if(msg.fileName.match(/\.(jpg|jpeg|png|gif)$/i))
+          html+=`<div style="margin-top:8px"><img src="${msg.fileData}" style="max-width:200px;border-radius:8px"></div>`;
+        else
+          html+=`<div><a href="${msg.fileData}" download="${msg.fileName}">${msg.fileName}</a></div>`;
+      }
+      html+=`<div class="metaSmall">${new Date(msg.ts).toLocaleTimeString()}</div></div>`;
+      div.innerHTML=html;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop=messagesEl.scrollHeight;
+    }
+
+    sendBtn.onclick=sendMessage;
+    messageInput.addEventListener('keypress',e=>{
+      if(e.key==='Enter')sendMessage();
+      showTyping();
+    });
+
+    async function sendMessage(){
+      if(!currentRoomId)return alert("Select a room first");
+      const text=messageInput.value.trim();
+      if(!text&&!pendingFile)return;
+      const msg={uid:currentUser.uid,user:currentUser.name,text,ts:Date.now()};
+      if(pendingFile){
+        msg.fileName=pendingFile.name;
+        msg.fileData=pendingFile.data;
+      }
+      db.ref('messages/'+currentRoomId).push(msg);
+      messageInput.value='';
+      filePreview.innerHTML='';
+      pendingFile=null;
+    }
+
+    attachBtn.onclick=()=>fileInput.click();
+    fileInput.addEventListener('change',e=>{
+      const f=e.target.files[0];
+      if(!f)return;
+      const reader=new FileReader();
+      reader.onload=()=>{
+        pendingFile={name:f.name,data:reader.result};
+        if(f.type.startsWith('image/'))
+          filePreview.innerHTML=`<img src="${reader.result}"/>`;
+        else
+          filePreview.innerHTML=`📄 ${f.name}`;
+      };
+      reader.readAsDataURL(f);
+    });
+
+    function showTyping(){
+      if(!currentRoomId)return;
+      const path='typing/'+currentRoomId+'/'+currentUser.uid;
+      db.ref(path).set({name:currentUser.name,ts:Date.now()});
+      if(typingTimeout)clearTimeout(typingTimeout);
+      typingTimeout=setTimeout(()=>db.ref(path).remove(),3000);
+    }
+
+    db.ref('typing').on('value',snap=>{
+      const val=snap.val();
+      if(!val||!val[currentRoomId]){typingIndicator.style.display='none';return;}
+      const users=Object.values(val[currentRoomId]);
+      const names=users.map(u=>u.name);
+      typingIndicator.textContent=names.join(', ') + (names.length>1?' are typing...':' is typing...');
+      typingIndicator.style.display='block';
+    });
+
+    // Theme toggle
+    themeToggle.onclick=()=>{
+      const current=document.body.getAttribute('data-theme');
+      const next=current==='dark'?'light':'dark';
+      document.body.setAttribute('data-theme',next);
+      themeToggle.textContent=next==='dark'?'☀️':'🌙';
+      localStorage.setItem('chatTheme',next);
+    };
+    const savedTheme=localStorage.getItem('chatTheme');
+    if(savedTheme)document.body.setAttribute('data-theme',savedTheme);
+  </script>
+</body>
+</html>
